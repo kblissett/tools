@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kanji Compound Dashboard</title>
+    <style>
+        :root {
+            --bg-color: #fcfcfc;
+            --card-bg: #ffffff;
+            --text-primary: #333333;
+            --text-secondary: #666666;
+            --border-color: #e5e7eb;
+            --primary-color: #3b82f6; /* On'yomi blue */
+            --accent-color: #10b981; /* Kun'yomi/Semantic green */
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            font-family: var(--font-family);
+            color: var(--text-primary);
+            line-height: 1.5;
+        }
+
+        #app {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        header {
+            margin-bottom: 3rem;
+            display: flex;
+            justify-content: center;
+        }
+
+        .search-container {
+            display: flex;
+            width: 100%;
+            max-width: 600px;
+            gap: 0.5rem;
+        }
+
+        #kanji-input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            font-size: 1.25rem;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        #kanji-input:focus {
+            border-color: var(--primary-color);
+        }
+
+        #search-btn {
+            padding: 0 1.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            color: white;
+            background-color: var(--primary-color);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        #search-btn:hover {
+            opacity: 0.9;
+        }
+
+        #dashboard {
+            display: flex;
+            flex-direction: row;
+            gap: 1.5rem;
+            overflow-x: auto;
+            padding-bottom: 2rem;
+            align-items: flex-start;
+        }
+
+        .placeholder-message {
+            width: 100%;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin-top: 2rem;
+        }
+
+        /* Card Styles */
+        .kanji-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: var(--shadow-md);
+            width: 300px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 1.5rem;
+            text-align: center;
+            border-bottom: 1px solid var(--border-color);
+            background-color: #fafafa;
+        }
+
+        .kanji-char {
+            font-size: 5rem;
+            line-height: 1;
+            margin-bottom: 0.5rem;
+            font-weight: 400;
+        }
+
+        .kanji-meaning {
+            font-size: 1.1rem;
+            font-weight: 600;
+            text-transform: capitalize;
+            margin-bottom: 0.5rem;
+        }
+
+        .kanji-readings {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .reading-on {
+            color: var(--primary-color);
+            font-weight: 500;
+        }
+
+        .reading-kun {
+            color: var(--accent-color);
+            font-weight: 500;
+        }
+
+        .jlpt-badge {
+            display: inline-block;
+            margin-top: 0.5rem;
+            padding: 0.25rem 0.5rem;
+            background-color: #e5e7eb;
+            color: #4b5563;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .card-section {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .card-section:last-child {
+            border-bottom: none;
+        }
+
+        .section-header {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #9ca3af;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+        }
+
+        .anchor-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .anchor-item {
+            cursor: pointer;
+            padding: 0.5rem;
+            background-color: #f3f4f6;
+            border-radius: 6px;
+            transition: background-color 0.2s;
+        }
+
+        .anchor-item:hover {
+            background-color: #e5e7eb;
+        }
+
+        .anchor-word {
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+
+        .anchor-reading {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .anchor-meaning {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            display: none; /* Show on hover handled via title or expand? Spec says hover. */
+        }
+
+        /* Tooltip-like behavior for anchors could be complex without JS,
+           but we'll keep it simple: showing meaning in title attribute or a small block */
+        .anchor-item:hover .anchor-meaning {
+            display: block;
+            margin-top: 0.25rem;
+        }
+
+        .structure-display {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+        }
+
+        .sibling-list {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .sibling-char {
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            width: 2.5rem;
+            height: 2.5rem;
+            background-color: #ecfdf5; /* Light green bg */
+            color: var(--accent-color);
+            border-radius: 50%;
+            font-size: 1.25rem;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        /* Loading Skeleton */
+        .skeleton {
+            background: #eee;
+            background: linear-gradient(110deg, #ececec 8%, #f5f5f5 18%, #ececec 33%);
+            border-radius: 5px;
+            background-size: 200% 100%;
+            animation: 1.5s shine linear infinite;
+        }
+
+        .skeleton-text {
+            height: 1em;
+            margin-bottom: 0.5rem;
+        }
+
+        .skeleton-rect {
+            height: 100px;
+            width: 100%;
+        }
+
+        @keyframes shine {
+            to {
+                background-position-x: -200%;
+            }
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            #dashboard {
+                flex-direction: column;
+                align-items: center;
+                overflow-x: hidden;
+            }
+
+            .kanji-card {
+                width: 100%;
+                max-width: 400px;
+            }
+
+            #app {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <header>
+            <div class="search-container">
+                <input type="text" id="kanji-input" placeholder="Enter Japanese compound (e.g., 会議室)" autocomplete="off">
+                <button id="search-btn">Analyze</button>
+            </div>
+        </header>
+        <main id="dashboard">
+            <!-- Results will be injected here -->
+            <div class="placeholder-message">
+                Enter a Kanji compound to explode it.
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Data Cache
+        const CACHE = {
+            kradfile: null,
+            kanjiToComponents: new Map(),
+            componentToKanji: new Map(),
+            componentCounts: new Map(),
+            kanjiApi: new Map(), // kanji -> details
+            wordsApi: new Map() // kanji -> words
+        };
+
+        // Kradfile Parsing
+        async function fetchKradfile() {
+            if (CACHE.kradfile) return;
+
+            try {
+                const response = await fetch('https://raw.githubusercontent.com/jmettraux/kensaku/master/data/kradfile-u');
+                if (!response.ok) throw new Error('Failed to fetch kradfile');
+                const text = await response.text();
+                parseKradfile(text);
+                CACHE.kradfile = true;
+            } catch (error) {
+                console.error('Error fetching kradfile:', error);
+                // In a real app, we might show a toast
+            }
+        }
+
+        function parseKradfile(text) {
+            const lines = text.split('\n');
+            for (const line of lines) {
+                if (line.startsWith('#') || !line.trim()) continue;
+
+                const parts = line.split(':');
+                if (parts.length < 2) continue;
+
+                const kanji = parts[0].trim();
+                const components = parts[1].trim().split(/\s+/);
+
+                CACHE.kanjiToComponents.set(kanji, components);
+
+                for (const comp of components) {
+                    if (!CACHE.componentToKanji.has(comp)) {
+                        CACHE.componentToKanji.set(comp, []);
+                    }
+                    CACHE.componentToKanji.get(comp).push(kanji);
+
+                    const count = CACHE.componentCounts.get(comp) || 0;
+                    CACHE.componentCounts.set(comp, count + 1);
+                }
+            }
+        }
+
+        // KanjiAPI Fetching
+        async function fetchKanjiData(kanji) {
+            if (CACHE.kanjiApi.has(kanji) && CACHE.wordsApi.has(kanji)) {
+                return {
+                    details: CACHE.kanjiApi.get(kanji),
+                    words: CACHE.wordsApi.get(kanji)
+                };
+            }
+
+            try {
+                const [detailsRes, wordsRes] = await Promise.all([
+                    fetch(`https://kanjiapi.dev/v1/kanji/${encodeURIComponent(kanji)}`),
+                    fetch(`https://kanjiapi.dev/v1/words/${encodeURIComponent(kanji)}`)
+                ]);
+
+                // Handle 404s gracefully
+                let details = null;
+                let words = [];
+
+                if (detailsRes.ok) {
+                    details = await detailsRes.json();
+                    CACHE.kanjiApi.set(kanji, details);
+                }
+
+                if (wordsRes.ok) {
+                    words = await wordsRes.json();
+                    CACHE.wordsApi.set(kanji, words);
+                }
+
+                return { details, words };
+
+            } catch (error) {
+                console.error(`Error fetching data for ${kanji}:`, error);
+                return { details: null, words: [] };
+            }
+        }
+
+        // --- Core Algorithms ---
+
+        // Anchor Algorithm
+        function getAnchors(kanji, allWords) {
+            // Filter out the input word itself (or variations of it) - handled by ensuring exact match exclusion if we had the full input
+            // But spec says "Exclusion: Do not list the input word itself".
+            // Since we process per-kanji, we don't know the full input word inside this function context easily unless passed.
+            // For now, we will just apply general quality filters.
+
+            // Priority 1: Match proficiency (prefer lower JLPT level / common words)
+            // Priority 2: Commonality (prefer 2-char compounds)
+            // We can score words.
+
+            if (!allWords || allWords.length === 0) return [];
+
+            const scoredWords = allWords.map(word => {
+                let score = 0;
+
+                // Prefer words with variants that have priority markings (if available in this API?)
+                // kanjiapi.dev returns variants with priorities like "news1", "ichi1" etc inside the variants array.
+                const isCommon = word.variants.some(v => v.priorities && v.priorities.length > 0);
+                if (isCommon) score += 10;
+
+                // Prefer shorter words (Jukugo - 2 chars)
+                const length = word.variants[0].written.length;
+                if (length === 2) score += 5;
+                else if (length === 3) score += 2;
+
+                // Prefer words that are NOT just the single kanji (unless it's a common word itself)
+                if (length === 1) score -= 2;
+
+                // We don't have explicit JLPT for words in this endpoint structure usually,
+                // but if we did, we'd use it. kanjiapi words endpoint structure:
+                // [{ meanings: [...], variants: [{ written: '...', pronounced: '...', priorities: [...] }] }]
+
+                return { word, score };
+            });
+
+            // Sort by score descending
+            scoredWords.sort((a, b) => b.score - a.score);
+
+            // Deduplicate by written form (take top 5 distinct)
+            const results = [];
+            const seen = new Set();
+
+            for (const item of scoredWords) {
+                if (results.length >= 5) break;
+                const written = item.word.variants[0].written;
+
+                // Exclude if it is the kanji itself (sometimes redundant) or if seen
+                if (seen.has(written)) continue;
+
+                // Exclude if it matches the current global input (accessed via global variable or passed arg)
+                // We'll handle input exclusion at render time or pass it in.
+                // For now, just add.
+
+                results.push(item.word);
+                seen.add(written);
+            }
+
+            return results;
+        }
+
+        // Sibling Algorithm
+        function getSiblings(kanji) {
+            const components = CACHE.kanjiToComponents.get(kanji);
+            if (!components || components.length === 0) return { components: [], siblings: [] };
+
+            // 1. Identify "Driver" Component (Rarest)
+            // Filter out common radicals if they are not the only one?
+            // Spec: "Filter out common radicals like 一, 口, 人 unless they are the only component"
+            // We use componentCounts to determine rarity.
+
+            let bestComponent = null;
+            let minCount = Infinity;
+
+            const IGNORE_IF_POSSIBLE = new Set(['一', '｜', '口', '人', '日', '月']); // Heuristic list of very common shapes
+
+            // Sort components by frequency
+            const sortedComponents = [...components].sort((a, b) => {
+                return (CACHE.componentCounts.get(a) || 0) - (CACHE.componentCounts.get(b) || 0);
+            });
+
+            // Pick the first one that is not in the ignore list, unless all are ignored
+            bestComponent = sortedComponents.find(c => !IGNORE_IF_POSSIBLE.has(c)) || sortedComponents[0];
+
+            // 2. Inverted Search
+            const candidateSiblings = CACHE.componentToKanji.get(bestComponent) || [];
+
+            // Filter:
+            // - Exclude the target kanji itself
+            // - Prioritize Joyo kanji? We don't have a Joyo list handy, but we can assume kradfile contains mostly standard ones.
+            // - Maybe limit to those we can fetch info for? No, that's too slow.
+            // - Just pick top 5.
+
+            const siblings = candidateSiblings
+                .filter(k => k !== kanji)
+                .slice(0, 5);
+
+            return {
+                components: components,
+                driver: bestComponent,
+                siblings: siblings
+            };
+        }
+
+        // --- Rendering & Logic ---
+
+        const kanjiInput = document.getElementById('kanji-input');
+        const searchBtn = document.getElementById('search-btn');
+        const dashboard = document.getElementById('dashboard');
+
+        // Init
+        (async function init() {
+            await fetchKradfile();
+
+            // Check hash
+            handleHashChange();
+
+            // Events
+            window.addEventListener('hashchange', handleHashChange);
+
+            searchBtn.addEventListener('click', triggerSearch);
+            kanjiInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') triggerSearch();
+            });
+        })();
+
+        function triggerSearch() {
+            const input = kanjiInput.value.trim();
+            if (input) {
+                window.location.hash = encodeURIComponent(input);
+            }
+        }
+
+        function handleHashChange() {
+            const hash = window.location.hash.substring(1); // remove #
+            if (hash) {
+                const decoded = decodeURIComponent(hash);
+                kanjiInput.value = decoded;
+                analyzeCompound(decoded);
+            }
+        }
+
+        function isKanji(char) {
+            // Simple range check for common Kanji (CJK Unified Ideographs)
+            return char >= '\u4e00' && char <= '\u9faf';
+        }
+
+        async function analyzeCompound(text) {
+            dashboard.innerHTML = ''; // Clear previous
+
+            // Deduplicate and filter Kanji
+            const uniqueChars = new Set();
+            const kanjiList = [];
+
+            for (const char of text) {
+                if (isKanji(char) && !uniqueChars.has(char)) {
+                    uniqueChars.add(char);
+                    kanjiList.push(char);
+                }
+            }
+
+            if (kanjiList.length === 0) {
+                dashboard.innerHTML = '<div class="placeholder-message">No Kanji found in input.</div>';
+                return;
+            }
+
+            // Limit to first 6
+            const targets = kanjiList.slice(0, 6);
+
+            // Create skeleton cards
+            targets.forEach(char => {
+                const card = createSkeletonCard(char);
+                dashboard.appendChild(card);
+
+                // Fetch and update
+                processKanjiCard(char, card, text);
+            });
+        }
+
+        function createSkeletonCard(char) {
+            const card = document.createElement('div');
+            card.className = 'kanji-card';
+            card.id = `card-${char}`;
+            card.innerHTML = `
+                <div class="card-header">
+                    <div class="kanji-char">${char}</div>
+                    <div class="skeleton skeleton-text" style="width: 50%; margin: 0 auto;"></div>
+                </div>
+                <div class="card-section">
+                    <div class="skeleton skeleton-rect"></div>
+                </div>
+            `;
+            return card;
+        }
+
+        async function processKanjiCard(char, cardElement, fullInput) {
+            const { details, words } = await fetchKanjiData(char);
+
+            if (!details) {
+                cardElement.innerHTML = `
+                    <div class="card-header">
+                        <div class="kanji-char">${char}</div>
+                        <div class="kanji-meaning">Data not found</div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Anchors
+            const anchors = getAnchors(char, words).filter(w => w.variants[0].written !== fullInput);
+
+            // Siblings
+            const { components, siblings } = getSiblings(char);
+
+            // Render content
+            cardElement.innerHTML = `
+                <div class="card-header">
+                    <div class="kanji-char">${char}</div>
+                    <div class="kanji-meaning">${details.meanings[0] || '?'}</div>
+                    <div class="kanji-readings">
+                        <span class="reading-on">${details.on_readings.join(', ')}</span>
+                        <span class="reading-kun">${details.kun_readings.join(', ')}</span>
+                    </div>
+                    ${details.jlpt ? `<span class="jlpt-badge">N${details.jlpt}</span>` : ''}
+                </div>
+
+                <div class="card-section">
+                    <div class="section-header">Common Words</div>
+                    <ul class="anchor-list">
+                        ${anchors.map(word => `
+                            <li class="anchor-item" title="${word.meanings[0].glosses.join(', ')}">
+                                <div class="anchor-word">${word.variants[0].written}</div>
+                                <div class="anchor-reading">${word.variants[0].pronounced}</div>
+                                <div class="anchor-meaning">${word.meanings[0].glosses[0]}</div>
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+
+                <div class="card-section">
+                    <div class="section-header">Structure</div>
+                    <div class="structure-display">
+                        ${components.join(' + ')}
+                    </div>
+                    <div class="section-header">Lookalikes</div>
+                    <div class="sibling-list">
+                        ${siblings.map(sib => `
+                            <a href="#${sib}" class="sibling-char">${sib}</a>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
